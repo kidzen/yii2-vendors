@@ -97,6 +97,59 @@ class Migration extends YiiMigration
         }
     }
 
+    //drop function
+    public function reset() {
+        if ($this->db->driverName === 'oci') {
+            //drop for confirm
+            $tables = Yii::$app->db->createCommand("select 'drop table \"' || table_name || '\" cascade constraints' as sql from user_tables")->queryAll();
+            foreach ($tables as $table) {
+                $this->execute($table['SQL']);
+            }
+
+            $views = Yii::$app->db->createCommand("select 'drop view \"' || view_name || '\" cascade constraints' as sql from user_views")->queryAll();
+            foreach ($views as $view) {
+                $this->execute($view['SQL']);
+            }
+        }
+        if ($this->db->driverName === 'mysql') {
+            //drop for confirm
+            try {
+                //set fk check off
+                $fkCheckOff = "SET FOREIGN_KEY_CHECKS = 0";
+                $this->execute($fkCheckOff);
+                //prepare script for dropping table and view
+                $script = "SELECT concat('DROP TABLE IF EXISTS ".$this->dbName.".', table_name, ';') as 'query'
+                FROM information_schema.tables
+                WHERE table_schema = '".$this->dbName."'";
+
+                $viewDropScript = "SELECT CONCAT('DROP VIEW IF EXISTS ".$this->dbName.".', table_name, ';') AS query
+                FROM information_schema.tables
+                WHERE table_schema = '".$this->dbName."' AND TABLE_TYPE LIKE 'VIEW'";
+
+                //dropping view
+                $viewDropObject = Yii::$app->db->createCommand($viewDropScript)->queryAll();
+                foreach ($viewDropObject as $viewQuery) {
+                    $this->execute($viewQuery['query']);
+                }
+
+                //dropping table
+                $sqlObject = Yii::$app->db->createCommand($script)->queryAll();
+                foreach ($sqlObject as $query) {
+                    $this->execute($query['query']);
+                }
+
+                //set fk check back on
+                $fkCheckOn = "SET FOREIGN_KEY_CHECKS = 1";
+                $this->execute($fkCheckOn);
+
+            } catch (\yii\db\Exception $e) {
+                echo $e->message();
+                return false;
+            }
+        }
+    }
+
+    // oracle only
     public function alterIdentitySequence()
     {
         if ($this->db->driverName === 'oci') {

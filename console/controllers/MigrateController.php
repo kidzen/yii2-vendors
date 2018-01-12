@@ -26,14 +26,7 @@ class MigrateController extends BaseMigrateController
 
 		$auth = Yii::$app->authManager;
 		// add crud permission : add table name that require complex user management
-		$crudModules = ['user'];
-		foreach ($crudModules as $key => $module) {
-			$this->stdOut("Add permission : $module\n", Console::FG_RED, Console::UNDERLINE);
-			$this->addCrudPermission($module,$auth);
-			$this->stdOut("Permission for $module added\n\n", Console::FG_GREEN, Console::UNDERLINE);
-		}
-
-		// add admin permission : add table that not included in crud permission
+		// get all table
 		$query = new \yii\db\Query();
 		switch (Yii::$app->db->driverName) {
 			case 'oci':
@@ -48,20 +41,49 @@ class MigrateController extends BaseMigrateController
 			->where(['table_schema'=>$migrate->dbName]);
 			break;
 		}
-		$query->andWhere(['not in','table_name',$crudModules])
+		$query->andWhere(['not like','table_name','migration'])
 		->andWhere(['not like','table_name','auth'])
-		->andWhere(['not like','table_name','migration'])
+		// ->andWhere(['not in','table_name',$crudModules])
 		->all();
 
 		foreach ($query->each() as $key => $value) {
-			$adminModules[] = $value['table_name'];
+			$crudModules[] = $value['table_name'];
 		}
-
-		foreach ($adminModules as $key => $module) {
-			$this->stdOut("Add permission for $module\n", Console::FG_RED, Console::UNDERLINE);
-			$this->addSimplePermission($module,$auth);
+		foreach ($crudModules as $key => $module) {
+			$this->stdOut("Add permission : $module\n", Console::FG_RED, Console::UNDERLINE);
+			$this->addCrudPermission($module,$auth);
 			$this->stdOut("Permission for $module added\n\n", Console::FG_GREEN, Console::UNDERLINE);
 		}
+
+		// add admin permission : add table that not included in crud permission
+		// $query = new \yii\db\Query();
+		// switch (Yii::$app->db->driverName) {
+		// 	case 'oci':
+		// 	$query->from('USER_TABLES')
+		// 	->select('TABLE_NAME as "table_name"')
+		// 	->where(['owner'=>$migrate->dbName]);
+		// 	break;
+
+		// 	default: // default to mysql
+		// 	$query->from('information_schema.tables')
+		// 	->select('table_name')
+		// 	->where(['table_schema'=>$migrate->dbName]);
+		// 	break;
+		// }
+		// $query->andWhere(['not in','table_name',$crudModules])
+		// ->andWhere(['not like','table_name','auth'])
+		// ->andWhere(['not like','table_name','migration'])
+		// ->all();
+
+		// foreach ($query->each() as $key => $value) {
+		// 	$adminModules[] = $value['table_name'];
+		// }
+
+		// foreach ($adminModules as $key => $module) {
+		// 	$this->stdOut("Add permission for $module\n", Console::FG_RED, Console::UNDERLINE);
+		// 	$this->addSimplePermission($module,$auth);
+		// 	$this->stdOut("Permission for $module added\n\n", Console::FG_GREEN, Console::UNDERLINE);
+		// }
 
 		// assign default role to admin
 		$roleList = \common\models\AuthItem::find()->select('name')->where(['like','name','_admin'])->asArray()->all();
@@ -92,11 +114,24 @@ class MigrateController extends BaseMigrateController
 		$auth->add($viewModule);
 		$this->stdOut("Add permission : $viewModule->name\n");
 
+        // add "viewAllModule" permission
+		$viewAllModule = $auth->createPermission('view_all_'.$module);
+		$viewAllModule->description = 'View all '.$module;
+		$auth->add($viewAllModule);
+		$auth->addChild($viewAllModule,$viewModule);
+		$this->stdOut("Add permission : $viewAllModule->name\n");
+
         // add "deleteModule" permission
 		$deleteModule = $auth->createPermission('delete_'.$module);
 		$deleteModule->description = 'Delete '.$module;
 		$auth->add($deleteModule);
 		$this->stdOut("Add permission : $deleteModule->name\n");
+
+        // add "noDeleteModule" permission
+		$noDeleteModule = $auth->createPermission('no_delete_'.$module);
+		$noDeleteModule->description = 'Forbidden delete on '.$module;
+		$auth->add($noDeleteModule);
+		$this->stdOut("Add permission : $noDeleteModule->name\n");
 
         // add "author" role and give this role the "createModule" permission
 		$author = $auth->createRole($module.'_author');
@@ -113,7 +148,7 @@ class MigrateController extends BaseMigrateController
 		$admin = $auth->createRole($module.'_admin');
 		$auth->add($admin);
 		$this->stdOut("Add role : $admin->name\n");
-		// $auth->addChild($admin, $viewModule);
+		$auth->addChild($admin, $viewAllModule);
 		$auth->addChild($admin, $updateModule);
 		$auth->addChild($admin, $deleteModule);
 		$auth->addChild($admin, $author);
@@ -122,7 +157,6 @@ class MigrateController extends BaseMigrateController
 		$this->stdOut("Append $author->name to $admin->name\n");
 
 		$this->addRule($module,$auth,$updateModule,$viewModule,$deleteModule,$author);
-
 	}
 
 	public function addRule($module,$auth,$updateModule,$viewModule,$deleteModule,$author) {
@@ -130,7 +164,7 @@ class MigrateController extends BaseMigrateController
 		$rule->name = $rule->name.'_'.$module;
 		$auth->add($rule);
 
-		// add the "updateOwnPost" permission and associate the rule with it.
+		// add the "viewOwnModule" permission and associate the rule with it.
 		$viewOwnModule = $auth->createPermission('viewOwn_'.$module);
 		$viewOwnModule->description = 'View own '.$module;
 		$viewOwnModule->ruleName = $rule->name;
@@ -172,6 +206,7 @@ class MigrateController extends BaseMigrateController
 		$auth->addChild($author, $deleteOwnModule);
 		$this->stdOut("Append $deleteOwnModule->name to $author->name\n");
 	}
+
 	public function assignDefaultUserPermission($roles,$userId) {
 		$auth = \Yii::$app->authManager;
 		foreach ($roles as $key => $roleName) {
@@ -180,6 +215,7 @@ class MigrateController extends BaseMigrateController
 			$this->stdOut("Append $role->name to Admin User\n");
 		}
 	}
+
 	public function addSimplePermission($module,$auth) {
         // add "createModule" permission
 		$createModule = $auth->createPermission('create_'.$module);
