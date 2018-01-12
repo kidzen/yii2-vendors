@@ -19,7 +19,15 @@ return [
         'fixture' => [
             'class' => 'yii\console\controllers\FixtureController',
             'namespace' => 'common\fixtures',
-          ],
+        ],
+        'migrate' => [
+            'class' => \console\controllers\MigrateController::class,
+            'migrationPath' => [
+                '@app/migrations',
+                // uncomment to use rbac
+                // '@yii/rbac/migrations', // Just in case you forgot to run it on console (see next note)
+            ],
+        ],
     ],
     'components' => [
         'log' => [

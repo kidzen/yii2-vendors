@@ -112,11 +112,12 @@ class Migration extends YiiMigration
         return true;
     }
 
-    public function getDbDriver()
+    public static function getDbDriver()
     {
         return Yii::$app->db->driverName;
     }
-    public function getDbName($name='dbname')
+
+    public static function getDbName($name='dbname')
     {
         switch (Yii::$app->db->driverName) {
             case 'mysql':

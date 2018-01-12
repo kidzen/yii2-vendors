@@ -3,9 +3,12 @@ return [
     'components' => [
         'db' => [
             'class' => 'yii\db\Connection',
-            'dsn' => 'mysql:host=localhost:3307;dbname=fems',
+            'dsn' => 'mysql:host=localhost:3307;dbname=yii2dev',
             'username' => 'root',
             'password' => '',
+            // 'enableQueryCache' => true,
+            // 'enableSchemaCache' => true,
+            // 'schemaCacheDuration' => false,
             'charset' => 'utf8',
         ],
         'mailer' => [
