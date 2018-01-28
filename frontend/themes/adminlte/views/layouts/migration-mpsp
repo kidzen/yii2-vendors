@@ -1,6 +1,0 @@
-
-
-select "ID","NAME","ADDRESS","CONTACT_NO","CREATED_AT","UPDATED_AT",
-(select staff_no from people where id = "CREATED_BY") "CREATED_BY",
-(select staff_no from people where id = "UPDATED_BY") "UPDATED_BY",
-"DELETED" "DELETED_BY","DELETED_AT" from vendors
